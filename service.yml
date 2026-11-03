@@ -1,0 +1,178 @@
+name: rust
+type: service
+icon: rust
+title: Rust
+scalable: true
+guidance: GUIDANCE.md
+labels:
+- rust
+options:
+- version: '1'
+  default: true
+  tag: 1-r0
+  devTag: 1-dev-r0
+endpoints:
+- name: rust
+  ports:
+  - name: rust
+    number: 8080
+    main: true
+    protocol: http
+
+links:
+- name: db
+  title: DBMS
+  required: false
+  env:
+  - name: DB_HOST
+    value: '{{link.database.host}}'
+  - name: DB_PORT
+    value: '{{link.database.port}}'
+  - name: DB_USERNAME
+    value: '{{link.database.user.name}}'
+  - name: DB_NAME
+    value: '{{link.database.db.name}}'
+  - name: DB_DATABASE
+    value: '{{link.database.db.name}}'
+  - name: DB_PASSWORD
+    value: '{{link.database.user.password}}'
+    secret: true
+  - name: DB_DRIVER
+    value: '{{link.database.driver}}'
+  - name: DB_CONNECTION
+    value: '{{link.database.driver}}'
+  selectors:
+  - type: db
+    labels:
+    - mariadb
+  - type: db
+    labels:
+    - mysql
+  - type: db
+    labels:
+    - postgres
+- name: sendmail
+  title: Mail Transfer Agent
+  required: false
+  env:
+  - name: SMTP_HOST
+    value: '{{link.host}}'
+  - name: SMTP_PORT
+    value: '{{link.port}}'
+  selectors:
+  - type: service
+    labels:
+    - smtpd
+- name: redis
+  title: Redis
+  required: false
+  env:
+  - name: REDIS_PORT
+    value: '{{link.port}}'
+  - name: REDIS_HOST
+    value: '{{link.host}}'
+  - name: REDIS_PASSWORD
+    value: '{{link.tokens.password}}'
+    secret: true
+  selectors:
+  - type: datastore
+    labels:
+    - redis
+  - type: datastore
+    labels:
+    - valkey
+
+integrations:
+- name: variable
+  title: Variable
+  type: variable
+  required: false
+  multiple: true
+
+build:
+  dockerfile: Dockerfile
+  connect: true
+  boilerplates:
+  - name: rust
+    title: Rust boilerplate
+    repo: https://github.com/wodby/rust-boilerplate
+    branch: main
+
+deployment:
+  strategy: rolling
+  maxUnavailable: 0
+  maxSurge: 1
+  minReady: 10s
+  progressDeadline: 15m
+  shutdownGracePeriod: 30s
+
+helm:
+  name: wodby
+  source: oci://registry-1.docker.io/wodby/stateless
+  chart: oci://registry-1.docker.io/wodby/stateless
+  version: 0.4.0
+  valueMappings:
+    replicas: replicaCount
+    serviceAccountName: serviceAccount.name
+    serviceAccountCreate: serviceAccount.create
+  values:
+  - name: containerName
+    value: rust
+  - name: containerPorts
+    value:
+    - name: rust
+      containerPort: 8080
+      protocol: TCP
+  # The image's check-ready action expects an HTTP 200 from the application's root path.
+  - name: readinessProbe
+    value:
+      exec:
+        command: [make, check-ready, -f, /usr/local/bin/actions.mk]
+      initialDelaySeconds: 5
+      failureThreshold: 2
+      timeoutSeconds: 3
+      periodSeconds: 5
+
+workloads:
+- name: main
+  selector:
+    matchLabels:
+      app.kubernetes.io/instance: '{{helm.release}}'
+  kind: deployment
+  primary: true
+  helm:
+    labels: podLabels
+    annotations: podAnnotations
+    volumes: extraVolumes
+  containers:
+  - name: rust
+    image: wodby/rust
+    build: true
+    helm:
+      resources: resources
+      env: envVars
+      mounts: extraVolumeMounts
+
+workspace:
+  configuration: [/docker-entrypoint.sh, --configure-runtime]
+  runner:
+    workload: main
+    container: rust
+    workingDirectory: /usr/src/app
+    homeDirectory: /home/wodby
+    username: wodby
+    uid: 1000
+    gid: 1000
+    port: 2222
+    command: [sudo, /usr/sbin/sshd, -D, -e, -f, /dev/null]
+  mounts:
+  - name: code
+    workload: main
+    container: rust
+    path: /usr/src/app
+  preparation:
+  - name: dependencies
+    command: [workspace-rust, prepare]
+    timeoutSeconds: 1800
+  # workspace-rust compiles the checkout again and restarts the application when a file changes.
+  reload: watch
