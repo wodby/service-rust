@@ -9,8 +9,8 @@ labels:
 options:
 - version: '1'
   default: true
-  tag: 1-r0
-  devTag: 1-dev-r0
+  tag: 1-r1
+  devTag: 1-dev-r1
 endpoints:
 - name: rust
   ports:
