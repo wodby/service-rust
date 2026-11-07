@@ -162,6 +162,10 @@ workloads:
   containers:
   - name: rust
     image: wodby/rust
+    resources:
+      request:
+        cpu: 100
+        memory: 272
     build: true
     helm:
       resources: resources
