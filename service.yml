@@ -10,7 +10,9 @@ options:
 - version: '1'
   default: true
   tag: 1-r2
+  digest: sha256:2c5156fb6093d3b139c4b3391e052848001ad4b624e3c3bf3c1ad4d93147a2f2
   devTag: 1-dev-r2
+  devDigest: sha256:377c9e7145c4d1dc6bfdfe5b40f0cc8d1827ad78892df0bd7c76f1d78aabdd81
 endpoints:
 - name: rust
   ports:
